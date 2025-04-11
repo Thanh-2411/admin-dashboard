@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
-import { TrashIcon, CheckCircleIcon, XCircleIcon, PlusCircleIcon, UsersIcon, FolderIcon, Bars3Icon, EyeIcon, BellIcon, PaperAirplaneIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, CheckCircleIcon, XCircleIcon, PlusCircleIcon, UsersIcon, FolderIcon, Bars3Icon, EyeIcon, BellIcon, PaperAirplaneIcon, ArrowPathIcon, ArrowLeftIcon, CurrencyDollarIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { Bar, Line } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
+
+// Đăng ký các thành phần cần thiết cho Chart.js
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend);
 
 function ProjectDetail() {
   const { projectId } = useParams();
@@ -19,7 +24,6 @@ function ProjectDetail() {
     return <div className="text-center text-gray-500">Dự án không tồn tại!</div>;
   }
 
-  // API giả lập gán tester
   const assignTestersToProject = async (projectId, testers) => {
     return new Promise((resolve) => {
       setTimeout(() => {
@@ -28,7 +32,6 @@ function ProjectDetail() {
     });
   };
 
-  // Duyệt dự án
   const approveProject = async () => {
     if (selectedTesters.length === 0) {
       alert('Vui lòng chọn ít nhất một tester!');
@@ -50,7 +53,6 @@ function ProjectDetail() {
     }
   };
 
-  // Từ chối dự án
   const rejectProject = () => {
     if (!rejectionReason.trim()) {
       alert('Vui lòng nhập lý do từ chối!');
@@ -70,9 +72,7 @@ function ProjectDetail() {
     navigate('/projects');
   };
 
-  // Đánh dấu dự án hoàn thành
   const markProjectAsCompleted = () => {
-    // Chỉ cho phép chuyển từ "ongoing" sang "completed"
     if (project.subStatus !== 'ongoing') {
       alert('Dự án không ở trạng thái "Đang thực hiện" để hoàn thành!');
       return;
@@ -89,7 +89,6 @@ function ProjectDetail() {
     localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
   };
 
-  // Gửi file bug
   const handleFileUpload = (e) => setBugFile(e.target.files[0]);
 
   const sendBugFile = () => {
@@ -101,21 +100,18 @@ function ProjectDetail() {
     }
   };
 
-  // Yêu cầu mở lại dự án
   const requestReopenProject = () => {
     const updatedNotifications = [...notifications, `Yêu cầu mở lại dự án ${project.name} đã được gửi.`];
     setNotifications(updatedNotifications);
     localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
   };
 
-  // Yêu cầu hỗ trợ
   const requestSupport = () => {
     const updatedNotifications = [...notifications, `Yêu cầu hỗ trợ cho dự án ${project.name} đã được gửi.`];
     setNotifications(updatedNotifications);
     localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
   };
 
-  // Hàm hiển thị trạng thái với văn bản rõ ràng hơn
   const displayStatus = () => {
     if (project.status === 'accepted') {
       if (project.subStatus === 'ongoing') {
@@ -124,7 +120,7 @@ function ProjectDetail() {
         return 'Accepted (Đã thực hiện xong)';
       }
     }
-    return project.status; // Các trạng thái khác (open, reject) giữ nguyên
+    return project.status;
   };
 
   return (
@@ -221,7 +217,6 @@ function ProjectDetail() {
         </div>
       </div>
 
-      {/* Popup từ chối dự án */}
       {showRejectPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg w-full max-w-md shadow-lg">
@@ -248,6 +243,336 @@ function ProjectDetail() {
   );
 }
 
+function PayoutManager() {
+  const [payoutTab, setPayoutTab] = useState('receive');
+  const [transactions, setTransactions] = useState(JSON.parse(localStorage.getItem('transactions')) || []);
+  const [newTransaction, setNewTransaction] = useState({
+    project: '',
+    customer: '',
+    amount: '',
+    recipient: '',
+    role: '',
+  });
+  const [notifications, setNotifications] = useState(JSON.parse(localStorage.getItem('notifications')) || []);
+
+  const projects = JSON.parse(localStorage.getItem('projects')) || [];
+  const customers = JSON.parse(localStorage.getItem('customers')) || [];
+  const testers = JSON.parse(localStorage.getItem('testers')) || [];
+  const testLeaders = JSON.parse(localStorage.getItem('testLeaders')) || [];
+
+  const handleReceivePayment = () => {
+    if (!newTransaction.project || !newTransaction.customer || !newTransaction.amount) {
+      alert('Vui lòng điền đầy đủ thông tin!');
+      return;
+    }
+
+    const transaction = {
+      id: Date.now(),
+      type: 'receive',
+      project: newTransaction.project,
+      customer: newTransaction.customer,
+      amount: parseFloat(newTransaction.amount),
+      status: 'completed',
+      date: new Date().toISOString(),
+    };
+
+    const updatedTransactions = [...transactions, transaction];
+    setTransactions(updatedTransactions);
+    localStorage.setItem('transactions', JSON.stringify(updatedTransactions));
+
+    const updatedNotifications = [...notifications, `Đã nhận thanh toán ${newTransaction.amount} từ ${newTransaction.customer} cho dự án ${newTransaction.project}.`];
+    setNotifications(updatedNotifications);
+    localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+
+    setNewTransaction({ project: '', customer: '', amount: '', recipient: '', role: '' });
+  };
+
+  const handlePayout = () => {
+    if (!newTransaction.recipient || !newTransaction.role || !newTransaction.amount) {
+      alert('Vui lòng điền đầy đủ thông tin!');
+      return;
+    }
+
+    const transaction = {
+      id: Date.now(),
+      type: 'payout',
+      recipient: newTransaction.recipient,
+      role: newTransaction.role,
+      amount: parseFloat(newTransaction.amount),
+      status: 'completed',
+      date: new Date().toISOString(),
+    };
+
+    const updatedTransactions = [...transactions, transaction];
+    setTransactions(updatedTransactions);
+    localStorage.setItem('transactions', JSON.stringify(updatedTransactions));
+
+    const updatedNotifications = [...notifications, `Đã thanh toán ${newTransaction.amount} cho ${newTransaction.recipient} (${newTransaction.role}).`];
+    setNotifications(updatedNotifications);
+    localStorage.setItem('notifications', JSON.stringify(updatedNotifications));
+
+    setNewTransaction({ project: '', customer: '', amount: '', recipient: '', role: '' });
+  };
+
+  return (
+    <main className="main-content">
+      <div className="card">
+        <h2 className="text-center">Payout Manager</h2>
+
+        <div className="mb-4 flex gap-2 justify-center">
+          <button
+            className={`px-4 py-2 rounded-lg ${payoutTab === 'receive' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            onClick={() => setPayoutTab('receive')}
+          >
+            Nhận thanh toán từ Customer
+          </button>
+          <button
+            className={`px-4 py-2 rounded-lg ${payoutTab === 'payout' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+            onClick={() => setPayoutTab('payout')}
+          >
+            Thanh toán cho Tester/Test Leader
+          </button>
+        </div>
+
+        {payoutTab === 'receive' && (
+          <div className="form-group justify-center">
+            <select
+              value={newTransaction.project}
+              onChange={(e) => setNewTransaction({ ...newTransaction, project: e.target.value })}
+              className="p-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500"
+              style={{ flex: 1, maxWidth: '300px' }}
+            >
+              <option value="">Chọn dự án</option>
+              {projects.map(project => (
+                <option key={project.id} value={project.name}>{project.name}</option>
+              ))}
+            </select>
+            <select
+              value={newTransaction.customer}
+              onChange={(e) => setNewTransaction({ ...newTransaction, customer: e.target.value })}
+              className="p-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500"
+              style={{ flex: 1, maxWidth: '300px' }}
+            >
+              <option value="">Chọn Customer</option>
+              {customers.map((customer, index) => (
+                <option key={index} value={customer}>{customer}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              value={newTransaction.amount}
+              onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+              placeholder="Số tiền"
+              className="p-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500"
+              style={{ flex: 1, maxWidth: '300px' }}
+            />
+            <button onClick={handleReceivePayment} className="btn-primary">
+              <CurrencyDollarIcon /> Nhận thanh toán
+            </button>
+          </div>
+        )}
+
+        {payoutTab === 'payout' && (
+          <div className="form-group justify-center">
+            <select
+              value={newTransaction.recipient}
+              onChange={(e) => setNewTransaction({ ...newTransaction, recipient: e.target.value })}
+              className="p-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500"
+              style={{ flex: 1, maxWidth: '300px' }}
+            >
+              <option value="">Chọn người nhận</option>
+              {testers.map((tester, index) => (
+                <option key={`tester-${index}`} value={tester}>{tester}</option>
+              ))}
+              {testLeaders.map((leader, index) => (
+                <option key={`leader-${index}`} value={leader}>{leader}</option>
+              ))}
+            </select>
+            <select
+              value={newTransaction.role}
+              onChange={(e) => setNewTransaction({ ...newTransaction, role: e.target.value })}
+              className="p-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500"
+              style={{ flex: 1, maxWidth: '300px' }}
+            >
+              <option value="">Chọn vai trò</option>
+              <option value="Tester">Tester</option>
+              <option value="Test Leader">Test Leader</option>
+            </select>
+            <input
+              type="number"
+              value={newTransaction.amount}
+              onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+              placeholder="Số tiền"
+              className="p-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500"
+              style={{ flex: 1, maxWidth: '300px' }}
+            />
+            <button onClick={handlePayout} className="btn-success">
+              <CurrencyDollarIcon /> Thanh toán
+            </button>
+          </div>
+        )}
+
+        <div className="mt-6">
+          <h3 className="text-center">Lịch sử giao dịch</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="p-3 text-left border-b">Loại giao dịch</th>
+                  <th className="p-3 text-left border-b">Dự án/Người nhận</th>
+                  <th className="p-3 text-left border-b">Số tiền</th>
+                  <th className="p-3 text-left border-b">Trạng thái</th>
+                  <th className="p-3 text-left border-b">Ngày</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map(transaction => (
+                  <tr key={transaction.id} className="hover:bg-gray-50">
+                    <td className="p-3 border-b">{transaction.type === 'receive' ? 'Nhận thanh toán' : 'Thanh toán'}</td>
+                    <td className="p-3 border-b">
+                      {transaction.type === 'receive' ? `${transaction.customer} (${transaction.project})` : `${transaction.recipient} (${transaction.role})`}
+                    </td>
+                    <td className="p-3 border-b">{transaction.amount.toLocaleString()} VNĐ</td>
+                    <td className="p-3 border-b">
+                      <span
+                        className={
+                          transaction.status === 'completed'
+                            ? 'status-approved'
+                            : transaction.status === 'pending'
+                            ? 'status-pending'
+                            : 'status-rejected'
+                        }
+                      >
+                        {transaction.status === 'completed' && <CheckCircleIcon />}
+                        {transaction.status === 'pending' && <XCircleIcon />}
+                        {transaction.status}
+                      </span>
+                    </td>
+                    <td className="p-3 border-b">{new Date(transaction.date).toLocaleString()}</td>
+                  </tr>
+                ))}
+                {transactions.length === 0 && (
+                  <tr>
+                    <td colSpan="5" className="p-3 text-center text-gray-500">
+                      Không có giao dịch nào
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function Statistics() {
+  const projects = JSON.parse(localStorage.getItem('projects')) || [];
+  const transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+
+  // Dữ liệu cho biểu đồ trạng thái dự án (Bar Chart)
+  const projectStatusData = {
+    labels: ['Open', 'Accepted', 'Reject'],
+    datasets: [
+      {
+        label: 'Số lượng dự án',
+        data: [
+          projects.filter(p => p.status === 'open').length,
+          projects.filter(p => p.status === 'accepted').length,
+          projects.filter(p => p.status === 'reject').length,
+        ],
+        backgroundColor: [
+          'rgba(255, 99, 132, 0.6)', // Màu cho Open
+          'rgba(54, 162, 235, 0.6)', // Màu cho Accepted
+          'rgba(255, 206, 86, 0.6)', // Màu cho Reject
+        ],
+        borderColor: [
+          'rgba(255, 99, 132, 1)',
+          'rgba(54, 162, 235, 1)',
+          'rgba(255, 206, 86, 1)',
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  // Dữ liệu cho biểu đồ giao dịch theo thời gian (Line Chart)
+  const transactionDataByDate = transactions.reduce((acc, transaction) => {
+    const date = new Date(transaction.date).toLocaleDateString();
+    if (!acc[date]) {
+      acc[date] = { receive: 0, payout: 0 };
+    }
+    if (transaction.type === 'receive') {
+      acc[date].receive += transaction.amount;
+    } else if (transaction.type === 'payout') {
+      acc[date].payout += transaction.amount;
+    }
+    return acc;
+  }, {});
+
+  const dates = Object.keys(transactionDataByDate).sort((a, b) => new Date(a) - new Date(b));
+  const receiveData = dates.map(date => transactionDataByDate[date].receive);
+  const payoutData = dates.map(date => transactionDataByDate[date].payout);
+
+  const transactionData = {
+    labels: dates,
+    datasets: [
+      {
+        label: 'Số tiền nhận (VNĐ)',
+        data: receiveData,
+        fill: false,
+        borderColor: 'rgba(75, 192, 192, 1)',
+        tension: 0.1,
+      },
+      {
+        label: 'Số tiền thanh toán (VNĐ)',
+        data: payoutData,
+        fill: false,
+        borderColor: 'rgba(255, 99, 132, 1)',
+        tension: 0.1,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Thống kê',
+      },
+    },
+  };
+
+  return (
+    <main className="main-content">
+      <div className="card">
+        <h2 className="text-center">Thống kê báo cáo</h2>
+
+        {/* Biểu đồ trạng thái dự án */}
+        <div className="mt-6">
+          <h3 className="text-center">Thống kê trạng thái dự án</h3>
+          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <Bar data={projectStatusData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Số lượng dự án theo trạng thái' } } }} />
+          </div>
+        </div>
+
+        {/* Biểu đồ giao dịch theo thời gian */}
+        <div className="mt-6">
+          <h3 className="text-center">Thống kê giao dịch theo thời gian</h3>
+          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+            <Line data={transactionData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, title: { ...chartOptions.plugins.title, text: 'Số tiền nhận/thanh toán theo thời gian' } } }} />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState('members');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -257,27 +582,23 @@ function App() {
   const [notifications, setNotifications] = useState(JSON.parse(localStorage.getItem('notifications')) || []);
   const [showNotificationPopup, setShowNotificationPopup] = useState(false);
 
-  // State cho Member Manager
-  const [testers, setTesters] = useState(['Tester 1', 'Tester 2', 'Tester 3']);
-  const [customers, setCustomers] = useState(['Customer 1', 'Customer 2']);
-  const [testLeaders, setTestLeaders] = useState(['Test Leader 1']);
+  const [testers, setTesters] = useState(JSON.parse(localStorage.getItem('testers')) || ['Tester 1', 'Tester 2', 'Tester 3']);
+  const [customers, setCustomers] = useState(JSON.parse(localStorage.getItem('customers')) || ['Customer 1', 'Customer 2']);
+  const [testLeaders, setTestLeaders] = useState(JSON.parse(localStorage.getItem('testLeaders')) || ['Test Leader 1']);
 
-  // State cho Test Project Manager
   const [projects, setProjects] = useState(JSON.parse(localStorage.getItem('projects')) || []);
   const [newProject, setNewProject] = useState({ name: '', customer: '', description: '' });
 
-  // Hiển thị popup thông báo khi có thông báo mới
   useEffect(() => {
     if (notifications.length > 0) {
       setShowNotificationPopup(true);
       const timer = setTimeout(() => {
         setShowNotificationPopup(false);
-      }, 3000); // Popup tự động đóng sau 3 giây
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [notifications]);
 
-  // Lọc danh sách thành viên
   const filteredTesters = testers.filter(tester =>
     tester.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -288,14 +609,22 @@ function App() {
     leader.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Xóa thành viên
   const removeMember = (role, name) => {
-    if (role === 'tester') setTesters(testers.filter(t => t !== name));
-    else if (role === 'customer') setCustomers(customers.filter(c => c !== name));
-    else if (role === 'testLeader') setTestLeaders(testLeaders.filter(l => l !== name));
+    if (role === 'tester') {
+      const updatedTesters = testers.filter(t => t !== name);
+      setTesters(updatedTesters);
+      localStorage.setItem('testers', JSON.stringify(updatedTesters));
+    } else if (role === 'customer') {
+      const updatedCustomers = customers.filter(c => c !== name);
+      setCustomers(updatedCustomers);
+      localStorage.setItem('customers', JSON.stringify(updatedCustomers));
+    } else if (role === 'testLeader') {
+      const updatedTestLeaders = testLeaders.filter(l => l !== name);
+      setTestLeaders(updatedTestLeaders);
+      localStorage.setItem('testLeaders', JSON.stringify(updatedTestLeaders));
+    }
   };
 
-  // Thêm dự án mới
   const addProject = () => {
     if (newProject.name.trim() === '' || newProject.customer.trim() === '') return;
     const projectId = Date.now();
@@ -309,7 +638,6 @@ function App() {
     setNewProject({ name: '', customer: '', description: '' });
   };
 
-  // Lọc dự án theo trạng thái
   const filteredProjects = projects.filter(project => 
     projectTab === 'all' || project.status === projectTab
   );
@@ -343,6 +671,30 @@ function App() {
               >
                 <FolderIcon />
                 Quản lý dự án
+              </div>
+            </Link>
+            <Link to="/payout">
+              <div
+                className={`nav-item ${activeTab === 'payout' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('payout');
+                  setSidebarOpen(false);
+                }}
+              >
+                <CurrencyDollarIcon />
+                Payout Manager
+              </div>
+            </Link>
+            <Link to="/statistics">
+              <div
+                className={`nav-item ${activeTab === 'statistics' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('statistics');
+                  setSidebarOpen(false);
+                }}
+              >
+                <ChartBarIcon />
+                Thống kê báo cáo
               </div>
             </Link>
           </nav>
@@ -527,7 +879,6 @@ function App() {
               <div className="card">
                 <h2 className="text-center">Quản lý dự án</h2>
 
-                {/* Form nhận dự án từ Customer */}
                 <div className="form-group justify-center">
                   <input
                     type="text"
@@ -558,7 +909,6 @@ function App() {
                   </button>
                 </div>
 
-                {/* Tabs cho Test Project Manager */}
                 <div className="mb-4 flex gap-2 justify-center">
                   <button
                     className={`px-4 py-2 rounded-lg ${projectTab === 'open' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
@@ -580,7 +930,6 @@ function App() {
                   </button>
                 </div>
 
-                {/* Bảng danh sách dự án */}
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse">
                     <thead>
@@ -634,6 +983,8 @@ function App() {
             </main>
           } />
           <Route path="/project/:projectId" element={<ProjectDetail />} />
+          <Route path="/payout" element={<PayoutManager />} />
+          <Route path="/statistics" element={<Statistics />} />
           <Route path="/" element={<Link to="/members" />} />
         </Routes>
       </div>
